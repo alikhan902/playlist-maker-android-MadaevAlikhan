@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.practicum.playlistmaker.data.db.AppDatabase
+import com.practicum.playlistmaker.data.file.PlaylistCoverManager
 import com.practicum.playlistmaker.data.network.RetrofitNetworkClient
 import com.practicum.playlistmaker.data.preferences.SearchHistoryPreferences
 import com.practicum.playlistmaker.data.preferences.ThemePreferences
@@ -21,11 +22,13 @@ object Creator {
     private var database: AppDatabase? = null
     private var searchHistoryPreferences: SearchHistoryPreferences? = null
     private var themePreferences: ThemePreferences? = null
+    private var playlistCoverManager: PlaylistCoverManager? = null
 
     fun initialize(context: Context) {
         database = AppDatabase.getInstance(context)
         searchHistoryPreferences = SearchHistoryPreferences(context.dataStore)
         themePreferences = ThemePreferences(context.dataStore)
+        playlistCoverManager = PlaylistCoverManager(context)
     }
 
     fun getTracksRepository(): TracksRepository {
@@ -33,11 +36,15 @@ object Creator {
     }
 
     fun getPlaylistsRepository(): PlaylistsRepository {
-        return PlaylistsRepositoryImpl(getDatabase())
+        return PlaylistsRepositoryImpl(getDatabase(), getPlaylistCoverManager())
     }
 
     fun getSearchHistoryPreferences(): SearchHistoryPreferences {
         return searchHistoryPreferences ?: throw IllegalStateException("Creator not initialized")
+    }
+
+    fun getPlaylistCoverManager(): PlaylistCoverManager {
+        return playlistCoverManager ?: throw IllegalStateException("Creator not initialized")
     }
 
     private fun getDatabase(): AppDatabase {

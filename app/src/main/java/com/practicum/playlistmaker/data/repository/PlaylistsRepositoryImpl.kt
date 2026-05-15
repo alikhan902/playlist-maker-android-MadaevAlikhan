@@ -1,14 +1,17 @@
 package com.practicum.playlistmaker.data.repository
 
+import android.net.Uri
 import com.practicum.playlistmaker.data.db.AppDatabase
 import com.practicum.playlistmaker.data.db.PlaylistEntity
+import com.practicum.playlistmaker.data.file.PlaylistCoverManager
 import com.practicum.playlistmaker.domain.models.Playlist
 import com.practicum.playlistmaker.domain.repository.PlaylistsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
 class PlaylistsRepositoryImpl(
-    database: AppDatabase
+    database: AppDatabase,
+    private val coverManager: PlaylistCoverManager
 ) : PlaylistsRepository {
 
     private val playlistDao = database.playlistDao()
@@ -48,11 +51,22 @@ class PlaylistsRepositoryImpl(
     }
 
     private suspend fun insertNewPlaylistItem(playlistName: String, playlistDescription: String, imageCoverUri: String?) {
+        // Сохраняем обложку во внутреннее хранилище и получаем локальный путь
+        val localCoverPath = if (imageCoverUri != null) {
+            try {
+                coverManager.saveCoverImage(Uri.parse(imageCoverUri))
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+
         playlistDao.insertPlaylist(
             PlaylistEntity(
                 name = playlistName,
                 description = playlistDescription,
-                coverImageUri = imageCoverUri
+                coverImageUri = localCoverPath ?: imageCoverUri
             )
         )
     }
@@ -62,6 +76,16 @@ class PlaylistsRepositoryImpl(
     }
 
     private suspend fun removePlaylist(playlistId: Long) {
+        // Получаем плейлист перед удалением чтобы удалить его обложку
+        val playlist = playlistDao.getPlaylistSync(playlistId)
+        
+        // Удаляем обложку из локального хранилища если она была
+        if (playlist != null && !playlist.coverImageUri.isNullOrEmpty()) {
+            if (coverManager.isLocalPath(playlist.coverImageUri)) {
+                coverManager.deleteCoverImage(playlist.coverImageUri)
+            }
+        }
+        
         trackDao.removeTracksFromPlaylist(playlistId)
         playlistDao.deletePlaylistById(playlistId)
     }
